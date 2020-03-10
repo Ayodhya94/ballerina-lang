@@ -77,14 +77,9 @@ import org.eclipse.lsp4j.services.LanguageClient;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BObjectTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BVarSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.types.*;
-import org.wso2.ballerinalang.compiler.tree.BLangCompilationUnit;
-import org.wso2.ballerinalang.compiler.tree.BLangFunction;
-import org.wso2.ballerinalang.compiler.tree.BLangImportPackage;
-import org.wso2.ballerinalang.compiler.tree.BLangNode;
-import org.wso2.ballerinalang.compiler.tree.BLangPackage;
-import org.wso2.ballerinalang.compiler.tree.BLangService;
-import org.wso2.ballerinalang.compiler.tree.BLangTypeDefinition;
+import org.wso2.ballerinalang.compiler.tree.*;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangInvocation;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangSimpleVarRef;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangBlockStmt;
@@ -607,21 +602,41 @@ public class CommandUtil {
 //            int  = symbolAtCursor.type.tag;
 
             if (symbolAtCursorTag == 12) { // tag 12 is user defined records or non-primitive types (?)
-                String commandTitle = "AI Data Mapper";
+                String commandTitle = "Get data mappings";
                 CodeAction action = new CodeAction(commandTitle);
 
                 action.setKind(CodeActionKind.QuickFix);
 
                 String uri = context.get(CodeActionKeys.FILE_URI_KEY);
-                List<TextEdit> fEdits = getAIDataMapperCodeActionEdits(document, context,refAtCursor, diagnostic);
-                action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
-                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
+                try {
+                    List<TextEdit> fEdits = getAIDataMapperCodeActionEdits(document, context,refAtCursor, diagnostic);
+                    action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
+                            new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
 
-                List<Diagnostic> diagnostics = new ArrayList<>();
-                action.setDiagnostics(diagnostics);
-                return action;
+                    List<Diagnostic> diagnostics = new ArrayList<>();
+                    action.setDiagnostics(diagnostics);
+                    return action;
+                } catch (Throwable e){
+                    return null;
+                }
+
             } else {
-                return null;
+                if (symbolAtCursorTag == 16){
+                    String commandTitle = "Automatically data map connectors1";
+                    CodeAction action = new CodeAction(commandTitle);
+                    action.setKind(CodeActionKind.QuickFix);
+
+                    String uri = context.get(CodeActionKeys.FILE_URI_KEY);
+                    List<TextEdit> fEdits = getAIDataMapperCodeActionEditsConnectors(document, context,refAtCursor, diagnostic);
+                    action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
+                            new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
+
+                    List<Diagnostic> diagnostics = new ArrayList<>();
+                    action.setDiagnostics(diagnostics);
+                    return action;
+                } else {
+                    return null;
+                }
             }
 
         } catch (CompilationFailedException | WorkspaceDocumentException e) { // | IOException e) {
@@ -629,6 +644,80 @@ public class CommandUtil {
         }
         return null;
     }
+
+    public static CodeAction getAIConnectorMapperCommand(LSDocumentIdentifier document, Diagnostic diagnostic,
+                                                    LSContext context) {
+        /* TODO: Complete the command and code action */
+        Position position = diagnostic.getRange().getStart();
+        String diagnosedContent = getDiagnosedContent(diagnostic, context, document);
+
+        try {
+            Position afterAliasPos = offsetInvocation(diagnosedContent, position);
+            SymbolReferencesModel.Reference refAtCursor = getReferenceAtCursor(context, document, afterAliasPos);
+            int symbolAtCursorTag = refAtCursor.getSymbol().type.tag;
+          if (symbolAtCursorTag == 16){
+                    String commandTitle = "Automatically data map connectors2";
+                    CodeAction action = new CodeAction(commandTitle);
+                    action.setKind(CodeActionKind.QuickFix);
+
+                    String uri = context.get(CodeActionKeys.FILE_URI_KEY);
+                    List<TextEdit> fEdits = getAIDataMapperCodeActionEditsConnectors(document, context,refAtCursor, diagnostic);
+                    action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
+                            new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
+
+                    List<Diagnostic> diagnostics = new ArrayList<>();
+                    action.setDiagnostics(diagnostics);
+                    return action;
+                } else {
+                    return null;
+                }
+
+        } catch (CompilationFailedException | WorkspaceDocumentException e) { // | IOException e) {
+            // ignore
+        }
+
+
+        BLangNode parent = null;
+        try {
+            BLangNode node = getReferenceAtCursor(context, document, position).getbLangNode();
+
+            if (node.parent instanceof BLangInvocation) {
+                BLangInvocation invocation = (BLangInvocation) node.parent;
+                String name = invocation.name.value;
+            }
+        } catch (WorkspaceDocumentException |CompilationFailedException e) {
+           return null;
+        }
+//        try {
+//            Position afterAliasPos = offsetInvocation(diagnosedContent, position);
+//            SymbolReferencesModel.Reference refAtCursor = getReferenceAtCursor(context, document, afterAliasPos);
+//            int symbolAtCursorTag = refAtCursor.getSymbol().type.tag;
+////            int  = symbolAtCursor.type.tag;
+//
+//            if (symbolAtCursorTag == 12) { // tag 12 is user defined records or non-primitive types (?)
+//                String commandTitle = "AI Data Mapper";
+//                CodeAction action = new CodeAction(commandTitle);
+//
+//                action.setKind(CodeActionKind.QuickFix);
+//
+//                String uri = context.get(CodeActionKeys.FILE_URI_KEY);
+//                List<TextEdit> fEdits = getAIDataMapperCodeActionEdits(document, context,refAtCursor, diagnostic);
+//                action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
+//                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
+//
+//                List<Diagnostic> diagnostics = new ArrayList<>();
+//                action.setDiagnostics(diagnostics);
+//                return action;
+//            } else {
+//                return null;
+//            }
+//
+//        } catch (CompilationFailedException | WorkspaceDocumentException e) { // | IOException e) {
+//            // ignore
+//        }
+        return null;
+    }
+
 
     private static BLangFunction getFunctionNode(int line, int column, LSDocumentIdentifier document,
                                                  WorkspaceDocumentManager docManager, LSContext context)
@@ -1226,6 +1315,54 @@ public class CommandUtil {
         return fEdits;
     }
 
+    private static List<TextEdit> getAIDataMapperCodeActionEditsConnectors(LSDocumentIdentifier document, LSContext context, SymbolReferencesModel.Reference refAtCursor, Diagnostic diagnostic){
+        List<TextEdit> fEdits = new ArrayList<>();
+
+        String diagnosticMessage = diagnostic.getMessage();
+        Matcher matcher = CommandConstants.INCOMPATIBLE_TYPE_PATTERN.matcher(diagnosticMessage);
+
+        if (matcher.find() && matcher.groupCount() > 1) {
+            String foundTypeLeft = matcher.group(1);  // variable at left side of the equal sign
+            String foundTypeRight = matcher.group(2);  // variable at right side of the equal sign
+
+//            try {
+                // Insert function call in the code where error is found
+                BLangNode bLangNode = refAtCursor.getbLangNode();
+                Position startPos = new Position(bLangNode.pos.sLine - 1, bLangNode.pos.sCol - 1);
+                Position endPosWithSemiColon = new Position(bLangNode.pos.eLine - 1, bLangNode.pos.eCol);
+                Range newTextRange = new Range(startPos, endPosWithSemiColon);
+
+                BSymbol symbolAtCursor = refAtCursor.getSymbol();
+                String variableAtCursor = symbolAtCursor.name.value;
+                String generatedFunctionName = String.format("map%sTo%s(%s);", foundTypeRight, foundTypeLeft, variableAtCursor);
+
+                TextEdit functionNameEdit = new TextEdit(newTextRange, generatedFunctionName);
+                fEdits.add(functionNameEdit);
+
+//                // Insert function declaration at the bottom of the file
+//                WorkspaceDocumentManager docManager = context.get(CodeActionKeys.DOCUMENT_MANAGER_KEY);
+//                String fileContent = docManager.getFileContent(docManager.getAllFilePaths().iterator().next());
+//                String functionName = String.format("map%sTo%s (%s", foundTypeRight, foundTypeLeft, foundTypeRight);
+//                int indexOfFunctionName = fileContent.indexOf(functionName);
+//                if (indexOfFunctionName == -1) {
+//                    int numberOfLinesInFile = fileContent.split("\n").length;
+//                    Position startPosOfLastLine = new Position(numberOfLinesInFile + 3, 0);
+//                    Position endPosOfLastLine = new Position(numberOfLinesInFile + 3, 1);
+//                    Range newFunctionRange = new Range(startPosOfLastLine, endPosOfLastLine);
+//
+//                    String generatedRecordMappingFunction = getGeneratedRecordMappingFunction(bLangNode, document, context, diagnostic, symbolAtCursor, docManager, foundTypeLeft, foundTypeRight);
+//                    TextEdit functionEdit = new TextEdit(newFunctionRange, generatedRecordMappingFunction);
+//                    fEdits.add(functionEdit);
+//                }
+//
+//            } catch (WorkspaceDocumentException e) {
+//                // ignore
+//            }
+        }
+        return fEdits;
+    }
+
+
     private static String getGeneratedRecordMappingFunction(BLangNode bLangNode, LSDocumentIdentifier document, LSContext context, Diagnostic diagnostic, BSymbol symbolAtCursor, WorkspaceDocumentManager docManager, String foundTypeLeft, String foundTypeRight){
         String generatedRecordMappingFunction = "";
         // Schema 1
@@ -1300,6 +1437,71 @@ public class CommandUtil {
         }
 
         return properties;
+    }
+
+    private static JsonElement paramToJSON(List<BVarSymbol> parameters){
+        JsonObject properties = new JsonObject();
+        for (BVarSymbol param: parameters){
+            JsonObject fieldDetails = new JsonObject();
+            fieldDetails.addProperty("id", "dummy_id");
+            fieldDetails.addProperty("type", String.valueOf(param.type));
+            properties.add(String.valueOf(param.name), fieldDetails);
+        }
+        return properties;
+    }
+
+    private static String getMappedConnectors(SymbolReferencesModel.Reference refAtCursor, BLangNode bLangNode, LSDocumentIdentifier document, LSContext context, Diagnostic diagnostic, BSymbol symbolAtCursor, WorkspaceDocumentManager docManager, String foundTypeLeft, String foundTypeRight){
+        String generatedRecordMappingFunction = "";
+        // Schema 1
+
+        BType variableTypeMappingFrom = symbolAtCursor.type;
+        List<BField> rightSchemaFields = ((BRecordType) variableTypeMappingFrom).fields;
+        JsonObject rightSchema = (JsonObject) recordToJSON(rightSchemaFields);
+
+        JsonObject rightRecordJSON = new JsonObject();
+        rightRecordJSON.addProperty("schema", foundTypeRight);
+        rightRecordJSON.addProperty("id", "dummy_id");
+        rightRecordJSON.addProperty("type", "object");
+        rightRecordJSON.add("properties", rightSchema);
+
+        // Schema 2
+        try {
+            List<BField> leftSchemaFields = ((BRecordType) ((BLangSimpleVarRef) bLangNode).expectedType).fields;
+            JsonObject leftSchema = (JsonObject) recordToJSON(leftSchemaFields);
+
+            JsonObject leftRecordJSON = new JsonObject();
+            leftRecordJSON.addProperty("schema", foundTypeLeft);
+            leftRecordJSON.addProperty("id", "dummy_id");
+            leftRecordJSON.addProperty("type", "object");
+            leftRecordJSON.add("properties", leftSchema);
+
+            JsonArray schemas = new JsonArray();
+            schemas.add(leftRecordJSON);
+            schemas.add(rightRecordJSON);
+
+            String schemasToSend = schemas.toString();
+            ////////////////
+            URL url = new URL ("http://127.0.0.1:5000/uploader");
+            HttpURLConnection con = (HttpURLConnection)url.openConnection();
+            con.setRequestMethod("POST");
+            con.setRequestProperty("Content-Type", "application/json; utf-8");
+            con.setRequestProperty("Accept", "application/json");
+            con.setDoOutput(true);
+
+            OutputStream os = con.getOutputStream();
+            os.write(schemasToSend.getBytes("UTF-8"));
+            os.close();
+
+            InputStream in = new BufferedInputStream(con.getInputStream());
+            String result = org.apache.commons.io.IOUtils.toString(in, "UTF-8");
+            generatedRecordMappingFunction = result;
+
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return generatedRecordMappingFunction;
     }
 
 }

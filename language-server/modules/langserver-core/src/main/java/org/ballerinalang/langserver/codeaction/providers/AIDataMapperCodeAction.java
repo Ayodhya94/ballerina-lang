@@ -59,6 +59,12 @@ public class AIDataMapperCodeAction extends AbstractCodeActionProvider {
                         actions.add(codeAction);
                     }
                 }
+                if (diagnostic.getMessage().toLowerCase(Locale.ROOT).contains("missing required parameter")) {
+                    CodeAction codeAction = CommandUtil.getAIConnectorMapperCommand(document, diagnostic, lsContext);
+                    if (codeAction != null) {
+                        actions.add(codeAction);
+                    }
+                }
             }
         }
 
