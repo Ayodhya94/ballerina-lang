@@ -129,7 +129,7 @@ public class AIDataMapperCodeAction extends AbstractCodeActionProvider {
                 return Optional.empty();
             }
             if (symbolAtCursorType instanceof BRecordType) {
-                CodeAction action = new CodeAction("Generate mapping function");
+                CodeAction action = new CodeAction("Generate mapping function-new");
                 action.setKind(CodeActionKind.QuickFix);
 
                 String uri = context.get(DocumentServiceKeys.FILE_URI_KEY);
@@ -138,8 +138,8 @@ public class AIDataMapperCodeAction extends AbstractCodeActionProvider {
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
                 action.setDiagnostics(new ArrayList<>());
                 return Optional.of(action);
-            } else if (symbolAtCursorType instanceof BRecordType) { /* TODO : Change type to connector type*/
-                CodeAction action = new CodeAction("Generate mapping function - connectors");
+            } else if (symbolAtCursorType.tag == 20) { /* TODO : Change type to connector type*/
+                CodeAction action = new CodeAction("Generate mapping function - connectors new");
                 action.setKind(CodeActionKind.QuickFix);
 
                 String uri = context.get(DocumentServiceKeys.FILE_URI_KEY);
