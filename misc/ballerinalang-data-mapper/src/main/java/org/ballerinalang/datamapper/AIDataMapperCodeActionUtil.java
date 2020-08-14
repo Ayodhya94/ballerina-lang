@@ -35,12 +35,16 @@ import org.eclipse.lsp4j.Diagnostic;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BVarSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BArrayType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BField;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BRecordType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
 import org.wso2.ballerinalang.compiler.tree.BLangNode;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangInvocation;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangSimpleVarRef;
 
 import java.io.IOException;
@@ -128,6 +132,42 @@ class AIDataMapperCodeActionUtil {
         return fEdits;
     }
 
+    static List<TextEdit> getAIDataMapperCodeActionEditsForConnectors(SymbolReferencesModel.Reference refAtCursor,
+                                                                      Diagnostic diagnostic)
+            throws IOException, WorkspaceDocumentException {
+
+        List<TextEdit> fEdits = new ArrayList<>();
+        String diagnosticMessage = diagnostic.getMessage();
+        Matcher matcher = CommandConstants.INCOMPATIBLE_TYPE_PATTERN.matcher(diagnosticMessage);
+
+        if (!(matcher.find() && matcher.groupCount() > 1)) {
+            return fEdits;
+        }
+        String foundTypeLeft = ((BLangInvocation) refAtCursor.getbLangNode().parent).name.toString();
+
+        String[] foundTypeRightFullQualifiedName = matcher.group(2)
+                .replaceAll(refAtCursor.getSymbol().type.tsymbol.pkgID.toString() + ":",
+                        "").split("\\|")[0].split(":");
+        String foundTypeRight = foundTypeRightFullQualifiedName[2];
+        // variable at right side of the equal sign
+        // TODO : (refAtCursor.getSymbol().flags & Flags.REMOTE) == Flags.REMOTE;
+
+        // Insert function call in the code where error is found
+        BLangNode bLangNode = refAtCursor.getbLangNode();
+        Position startPos = new Position(bLangNode.pos.sLine - 1, bLangNode.pos.sCol - 1);
+        Position endPosWithSemiColon = new Position(bLangNode.pos.eLine - 1, bLangNode.pos.eCol);
+        Range newTextRange = new Range(startPos, endPosWithSemiColon);
+
+        BSymbol symbolAtCursor = refAtCursor.getSymbol();
+
+        // Insert function declaration at the bottom of the file
+        String generatedRecordMappingFunction =
+                getGeneratedConnectorMappingFunction(symbolAtCursor, foundTypeLeft, foundTypeRight, refAtCursor);
+        TextEdit functionNameEdit = new TextEdit(newTextRange, generatedRecordMappingFunction);
+        fEdits.add(functionNameEdit);
+        return fEdits;
+    }
+
     /**
      * Given two record types, this returns a function with mapped schemas.
      *
@@ -173,6 +213,50 @@ class AIDataMapperCodeActionUtil {
         return getMapping(schemas);
     }
 
+    private static String getGeneratedConnectorMappingFunction(BSymbol symbolAtCursor, String foundTypeLeft,
+                                                               String foundTypeRight,
+                                                               SymbolReferencesModel.Reference refAtCursor)
+            throws IOException {
+        JsonObject rightRecordJSON = new JsonObject();
+        JsonObject leftRecordJSON = new JsonObject();
+        // Schema 1
+        BType variableTypeMappingFromRaw = symbolAtCursor.type;
+        BType variableTypeMappingFrom;
+        if (variableTypeMappingFromRaw instanceof BUnionType) {
+            variableTypeMappingFrom =
+                    ((BUnionType) variableTypeMappingFromRaw).getMemberTypes().iterator().next();
+        } else {
+            variableTypeMappingFrom = variableTypeMappingFromRaw;
+        }
+        if (variableTypeMappingFrom instanceof BRecordType) {
+            List<BField> rightSchemaFields = new ArrayList<>(((BRecordType) variableTypeMappingFrom).fields.values());
+            JsonObject rightSchema = (JsonObject) recordToJSON(rightSchemaFields);
+
+            rightRecordJSON.addProperty(SCHEMA, foundTypeRight);
+            rightRecordJSON.addProperty(ID, "dummy_id");
+            rightRecordJSON.addProperty(TYPE, "object");
+            rightRecordJSON.add(PROPERTIES, rightSchema);
+        }
+        // Schema 2
+        BLangNode parentNode = refAtCursor.getbLangNode().parent;
+        if (parentNode instanceof BLangInvocation) {
+            BSymbol connectorSymbol = ((BLangInvocation) parentNode).symbol;
+            if (connectorSymbol instanceof BInvokableSymbol) {
+                List<BVarSymbol> leftSchemaFields = ((BInvokableSymbol) connectorSymbol).params;
+                JsonObject leftSchema = (JsonObject) paramsToJSON(leftSchemaFields);
+
+                leftRecordJSON.addProperty(SCHEMA, foundTypeLeft);
+                leftRecordJSON.addProperty(ID, "dummy_id");
+                leftRecordJSON.addProperty(TYPE, "object");
+                leftRecordJSON.add(PROPERTIES, leftSchema);
+            }
+        }
+        JsonArray schemas = new JsonArray();
+        schemas.add(leftRecordJSON);
+        schemas.add(rightRecordJSON);
+        return getMapping(schemas);
+    }
+
     /**
      * For a give array of schemas, return a mapping function.
      *
@@ -197,6 +281,33 @@ class AIDataMapperCodeActionUtil {
     private static JsonElement recordToJSON(List<BField> schemaFields) {
         JsonObject properties = new JsonObject();
         for (BField attribute : schemaFields) {
+            JsonObject fieldDetails = new JsonObject();
+            fieldDetails.addProperty(ID, "dummy_id");
+            if (attribute.type instanceof BArrayType) {
+                BType attributeEType = ((BArrayType) attribute.type).eType;
+                if (attributeEType instanceof BRecordType) {
+                    fieldDetails.addProperty(TYPE, "ballerina_type");
+                    fieldDetails.add(PROPERTIES,
+                            recordToJSON(new ArrayList<>(((BRecordType) attributeEType).fields.values())));
+                } else {
+                    fieldDetails.addProperty(TYPE, String.valueOf(attribute.type));
+                }
+            } else if (attribute.type instanceof BRecordType) {
+                fieldDetails.addProperty(TYPE, "ballerina_type");
+                fieldDetails.add(PROPERTIES,
+                        recordToJSON(new ArrayList<>(((BRecordType) attribute.type).fields.values())));
+            } else {
+                fieldDetails.addProperty(TYPE, String.valueOf(attribute.type));
+            }
+            properties.add(String.valueOf(attribute.name), fieldDetails);
+        }
+        return properties;
+    }
+
+    private static JsonElement paramsToJSON(List<BVarSymbol> schemaFields) {
+
+        JsonObject properties = new JsonObject();
+        for (BVarSymbol attribute : schemaFields) {
             JsonObject fieldDetails = new JsonObject();
             fieldDetails.addProperty(ID, "dummy_id");
             if (attribute.type instanceof BArrayType) {

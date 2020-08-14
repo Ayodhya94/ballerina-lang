@@ -51,6 +51,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static org.ballerinalang.datamapper.AIDataMapperCodeActionUtil.getAIDataMapperCodeActionEdits;
+import static org.ballerinalang.datamapper.AIDataMapperCodeActionUtil.getAIDataMapperCodeActionEditsForConnectors;
 import static org.ballerinalang.langserver.util.references.ReferencesUtil.getReferenceAtCursor;
 
 /**
@@ -133,6 +134,18 @@ public class AIDataMapperCodeAction extends AbstractCodeActionProvider {
 
                 String uri = context.get(DocumentServiceKeys.FILE_URI_KEY);
                 List<TextEdit> fEdits = getAIDataMapperCodeActionEdits(context, refAtCursor, diagnostic);
+                action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
+                        new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
+                action.setDiagnostics(new ArrayList<>());
+                return Optional.of(action);
+            } else if (symbolAtCursorType instanceof BRecordType) { /* TODO : Change type to connector type*/
+                CodeAction action = new CodeAction("Generate mapping function - connectors");
+                action.setKind(CodeActionKind.QuickFix);
+
+                String uri = context.get(DocumentServiceKeys.FILE_URI_KEY);
+                List<TextEdit> fEdits =
+                        getAIDataMapperCodeActionEditsForConnectors(refAtCursor, diagnostic);
+                //document
                 action.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
                 action.setDiagnostics(new ArrayList<>());
