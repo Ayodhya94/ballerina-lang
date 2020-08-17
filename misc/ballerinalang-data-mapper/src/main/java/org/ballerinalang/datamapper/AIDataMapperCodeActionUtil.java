@@ -40,6 +40,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BVarSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BArrayType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BField;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BInvokableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BRecordType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
@@ -147,8 +148,8 @@ class AIDataMapperCodeActionUtil {
 
         String[] foundTypeRightFullQualifiedName = matcher.group(2)
                 .replaceAll(refAtCursor.getSymbol().type.tsymbol.pkgID.toString() + ":",
-                        "").split("\\|")[0].split(":");
-        String foundTypeRight = foundTypeRightFullQualifiedName[2];
+                        "").split("\\|")[0].split("\\(");
+        String foundTypeRight = foundTypeRightFullQualifiedName[1];
         // variable at right side of the equal sign
         // TODO : (refAtCursor.getSymbol().flags & Flags.REMOTE) == Flags.REMOTE;
 
@@ -220,7 +221,7 @@ class AIDataMapperCodeActionUtil {
         JsonObject rightRecordJSON = new JsonObject();
         JsonObject leftRecordJSON = new JsonObject();
         // Schema 1
-        BType variableTypeMappingFromRaw = symbolAtCursor.type;
+        BType variableTypeMappingFromRaw = ((BInvokableType) symbolAtCursor.type).retType; //symbolAtCursor.type;
         BType variableTypeMappingFrom;
         if (variableTypeMappingFromRaw instanceof BUnionType) {
             variableTypeMappingFrom =

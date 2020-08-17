@@ -2,7 +2,7 @@
   "line": 58,
   "character": 18,
   "expected": {
-    "title": "Generate mapping function",
+    "title": "Generate mapping function-new",
     "edits": [
       {"range":{
         "start":{

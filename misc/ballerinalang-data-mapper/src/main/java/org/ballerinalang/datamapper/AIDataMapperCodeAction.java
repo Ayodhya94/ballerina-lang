@@ -138,7 +138,7 @@ public class AIDataMapperCodeAction extends AbstractCodeActionProvider {
                         new TextDocumentEdit(new VersionedTextDocumentIdentifier(uri, null), fEdits)))));
                 action.setDiagnostics(new ArrayList<>());
                 return Optional.of(action);
-            } else if (symbolAtCursorType.tag == 20) { /* TODO : Change type to connector type*/
+            } else if (symbolAtCursorType.flags == 32 ) { /* TODO : Change type to connector type*/
                 CodeAction action = new CodeAction("Generate mapping function - connectors new");
                 action.setKind(CodeActionKind.QuickFix);
 
