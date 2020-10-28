@@ -183,6 +183,14 @@ public class SymbolResolver extends BLangNodeVisitor {
             foundSym = lookupSymbolForDecl(env, symbol.name, SymTag.MAIN);
         }
 
+        if (foundSym == symTable.notFoundSymbol && symbol.tag == SymTag.FUNCTION) {
+            int dotPosition = symbol.name.value.indexOf('.');
+            if (dotPosition > 0 && dotPosition != symbol.name.value.length()) {
+                String funcName = symbol.name.value.substring(dotPosition + 1);
+                foundSym = lookupSymbolForDecl(env, names.fromString(funcName), SymTag.MAIN);
+            }
+        }
+
         //if symbol is not found then it is unique for the current scope
         if (foundSym == symTable.notFoundSymbol) {
             return true;
@@ -1004,9 +1012,15 @@ public class SymbolResolver extends BLangNodeVisitor {
             flags.add(Flag.PUBLIC);
         }
 
-        boolean isReadOnly = objectTypeNode.flagSet.contains(Flag.READONLY);
-        if (isReadOnly) {
+        int typeFlags = 0;
+        if (objectTypeNode.flagSet.contains(Flag.READONLY)) {
             flags.add(Flag.READONLY);
+            typeFlags |= Flags.READONLY;
+        }
+
+        if (objectTypeNode.flagSet.contains(Flag.ISOLATED)) {
+            flags.add(Flag.ISOLATED);
+            typeFlags |= Flags.ISOLATED;
         }
 
         BTypeSymbol objectSymbol = Symbols.createObjectSymbol(Flags.asMask(flags), Names.EMPTY,
@@ -1015,7 +1029,7 @@ public class SymbolResolver extends BLangNodeVisitor {
         if (flags.contains(Flag.SERVICE)) {
             objectType = new BServiceType(objectSymbol);
         } else {
-            objectType = isReadOnly ? new BObjectType(objectSymbol, Flags.READONLY) : new BObjectType(objectSymbol);
+            objectType = new BObjectType(objectSymbol, typeFlags);
         }
         objectSymbol.type = objectType;
         objectTypeNode.symbol = objectSymbol;

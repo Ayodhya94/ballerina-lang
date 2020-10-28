@@ -173,7 +173,6 @@ import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.TableConstructorExpressionNode;
 import io.ballerina.compiler.syntax.tree.TableTypeDescriptorNode;
 import io.ballerina.compiler.syntax.tree.TemplateExpressionNode;
-import io.ballerina.compiler.syntax.tree.TemplateMemberNode;
 import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.compiler.syntax.tree.TransactionStatementNode;
 import io.ballerina.compiler.syntax.tree.TransactionalExpressionNode;
@@ -422,6 +421,7 @@ import java.util.Set;
 import java.util.Stack;
 import java.util.regex.Matcher;
 
+import static org.ballerinalang.model.elements.Flag.ISOLATED;
 import static org.ballerinalang.model.elements.Flag.SERVICE;
 import static org.wso2.ballerinalang.compiler.util.Constants.INFERRED_ARRAY_INDICATOR;
 import static org.wso2.ballerinalang.compiler.util.Constants.OPEN_ARRAY_INDICATOR;
@@ -543,7 +543,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         TypedBindingPatternNode typedBindingPattern = modVarDeclrNode.typedBindingPattern();
         CaptureBindingPatternNode bindingPattern = (CaptureBindingPatternNode) typedBindingPattern.bindingPattern();
         BLangSimpleVariable simpleVar = createSimpleVar(bindingPattern.variableName(),
-                typedBindingPattern.typeDescriptor(), modVarDeclrNode.initializer(),
+                typedBindingPattern.typeDescriptor(), modVarDeclrNode.initializer().orElse(null),
                 modVarDeclrNode.finalKeyword().isPresent(), false, null,
                 getAnnotations(modVarDeclrNode.metadata()));
         simpleVar.pos = getPositionWithoutMetadata(modVarDeclrNode);
@@ -861,13 +861,23 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         BLangObjectTypeNode objectTypeNode = (BLangObjectTypeNode) TreeBuilder.createObjectTypeNode();
 
         for (Token qualifier : objTypeDescNode.objectTypeQualifiers()) {
-            if (qualifier.kind() == SyntaxKind.CLIENT_KEYWORD) {
+            SyntaxKind kind = qualifier.kind();
+            if (kind == SyntaxKind.CLIENT_KEYWORD) {
                 objectTypeNode.flagSet.add(Flag.CLIENT);
-            } else if (qualifier.kind() == SyntaxKind.SERVICE_KEYWORD) {
-                objectTypeNode.flagSet.add(SERVICE);
-            } else {
-                throw new RuntimeException("Syntax kind is not supported: " + qualifier.kind());
+                continue;
             }
+
+            if (kind == SyntaxKind.SERVICE_KEYWORD) {
+                objectTypeNode.flagSet.add(SERVICE);
+                continue;
+            }
+
+            if (kind == SyntaxKind.ISOLATED_KEYWORD) {
+                objectTypeNode.flagSet.add(ISOLATED);
+                continue;
+            }
+
+            throw new RuntimeException("Syntax kind is not supported: " + kind);
         }
 
         NodeList<Node> members = objTypeDescNode.members();
@@ -1037,7 +1047,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
 
     @Override
     public BLangNode transform(ServiceDeclarationNode serviceDeclrNode) {
-        return createService(serviceDeclrNode, serviceDeclrNode.serviceName(), false);
+        return createService(serviceDeclrNode, serviceDeclrNode.serviceName().orElse(null), false);
     }
 
     private BLangNode createService(Node serviceNode, IdentifierToken serviceNameNode, boolean isAnonServiceValue) {
@@ -2061,8 +2071,8 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         // TODO : Attach annotations if available
         typeConversionNode.pos = getPosition(typeCastExpressionNode);
         TypeCastParamNode typeCastParamNode = typeCastExpressionNode.typeCastParam();
-        if (typeCastParamNode != null && typeCastParamNode.type() != null) {
-            typeConversionNode.typeNode = createTypeNode(typeCastParamNode.type());
+        if (typeCastParamNode != null && typeCastParamNode.type().isPresent()) {
+            typeConversionNode.typeNode = createTypeNode(typeCastParamNode.type().get());
         }
         typeConversionNode.expr = createExpression(typeCastExpressionNode.expression());
         typeConversionNode.annAttachments = applyAll(typeCastParamNode.annotations());
@@ -2198,7 +2208,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
     @Override
     public BLangNode transform(FlushActionNode flushActionNode) {
         BLangWorkerFlushExpr workerFlushExpr = TreeBuilder.createWorkerFlushExpressionNode();
-        Node optionalPeerWorker = flushActionNode.peerWorker();
+        Node optionalPeerWorker = flushActionNode.peerWorker().orElse(null);
         if (optionalPeerWorker != null) {
             SimpleNameReferenceNode peerWorker = (SimpleNameReferenceNode) optionalPeerWorker;
             workerFlushExpr.workerIdentifier = createIdentifier(peerWorker.name());
@@ -3331,7 +3341,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
 
     public BLangNode transform(EnumDeclarationNode enumDeclarationNode) {
         Boolean publicQualifier = false;
-        if (enumDeclarationNode.qualifier() != null && enumDeclarationNode.qualifier().kind()
+        if (enumDeclarationNode.qualifier().isPresent() && enumDeclarationNode.qualifier().get().kind()
                 == SyntaxKind.PUBLIC_KEYWORD) {
             publicQualifier = true;
         }
@@ -3624,20 +3634,26 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         });
 
         for (Token qualifier : classDefinitionNode.classTypeQualifiers()) {
-            if (qualifier.kind() == SyntaxKind.DISTINCT_KEYWORD) {
-                blangClass.flagSet.add(Flag.DISTINCT);
-            }
+            SyntaxKind kind = qualifier.kind();
 
-            if (qualifier.kind() == SyntaxKind.CLIENT_KEYWORD) {
-                blangClass.flagSet.add(Flag.CLIENT);
-            }
-
-            if (qualifier.kind() == SyntaxKind.READONLY_KEYWORD) {
-                blangClass.flagSet.add(Flag.READONLY);
-            }
-
-            if (qualifier.kind() == SyntaxKind.SERVICE_KEYWORD) {
-                blangClass.flagSet.add(SERVICE);
+            switch (kind) {
+                case DISTINCT_KEYWORD:
+                    blangClass.flagSet.add(Flag.DISTINCT);
+                    break;
+                case CLIENT_KEYWORD:
+                    blangClass.flagSet.add(Flag.CLIENT);
+                    break;
+                case READONLY_KEYWORD:
+                    blangClass.flagSet.add(Flag.READONLY);
+                    break;
+                case SERVICE_KEYWORD:
+                    blangClass.flagSet.add(Flag.SERVICE);
+                    break;
+                case ISOLATED_KEYWORD:
+                    blangClass.flagSet.add(Flag.ISOLATED);
+                    break;
+                default:
+                    throw new RuntimeException("Syntax kind is not supported: " + kind);
             }
         }
 
@@ -4214,7 +4230,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         }
     }
 
-    private BLangNode createStringTemplateLiteral(NodeList<TemplateMemberNode> memberNodes, DiagnosticPos pos) {
+    private BLangNode createStringTemplateLiteral(NodeList<Node> memberNodes, DiagnosticPos pos) {
         BLangStringTemplateLiteral stringTemplateLiteral =
                 (BLangStringTemplateLiteral) TreeBuilder.createStringTemplateLiteralNode();
         for (Node memberNode : memberNodes) {
@@ -4231,7 +4247,7 @@ public class BLangNodeTransformer extends NodeTransformer<BLangNode> {
         return stringTemplateLiteral;
     }
 
-    private BLangRawTemplateLiteral createRawTemplateLiteral(NodeList<TemplateMemberNode> members, DiagnosticPos pos) {
+    private BLangRawTemplateLiteral createRawTemplateLiteral(NodeList<Node> members, DiagnosticPos pos) {
         BLangRawTemplateLiteral literal = (BLangRawTemplateLiteral) TreeBuilder.createRawTemplateLiteralNode();
         literal.pos = pos;
 

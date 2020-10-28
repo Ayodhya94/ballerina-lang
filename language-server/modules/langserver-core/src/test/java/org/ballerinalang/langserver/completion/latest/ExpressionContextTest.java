@@ -63,10 +63,12 @@ public class ExpressionContextTest extends CompletionTestNew {
                 {"fail_expr_ctx_config1.json", this.getTestResourceDir()},        
                 {"fail_expr_ctx_config2.json", this.getTestResourceDir()},        
                 {"fail_expr_ctx_config3.json", this.getTestResourceDir()},        
-//                {"field_access_ctx_config1.json", this.getTestResourceDir()},        
-//                {"field_access_ctx_config2.json", this.getTestResourceDir()},        
-//                {"field_access_ctx_config3.json", this.getTestResourceDir()},        
-//                {"field_access_ctx_config4.json", this.getTestResourceDir()},        
+                {"field_access_ctx_config1.json", this.getTestResourceDir()},        
+                {"field_access_ctx_config2.json", this.getTestResourceDir()},        
+                {"field_access_ctx_config3.json", this.getTestResourceDir()},        
+                {"field_access_ctx_config4.json", this.getTestResourceDir()},        
+                {"field_access_ctx_config5.json", this.getTestResourceDir()},        
+                {"field_access_ctx_config6.json", this.getTestResourceDir()},        
                 {"list_constructor_ctx_config1.json", this.getTestResourceDir()},        
                 {"list_constructor_ctx_config2.json", this.getTestResourceDir()},        
                 {"list_constructor_ctx_config3.json", this.getTestResourceDir()},        
@@ -91,10 +93,10 @@ public class ExpressionContextTest extends CompletionTestNew {
                 {"new_expr_ctx_config1.json", this.getTestResourceDir()},        
                 {"new_expr_ctx_config1.json", this.getTestResourceDir()},        
                 {"new_expr_ctx_config2.json", this.getTestResourceDir()},        
-//                {"new_expr_ctx_config3.json", this.getTestResourceDir()},   // blocked by 26309
-//                {"new_expr_ctx_config4.json", this.getTestResourceDir()},   // blocked by 26309
+                {"new_expr_ctx_config3.json", this.getTestResourceDir()},
+                {"new_expr_ctx_config4.json", this.getTestResourceDir()},
                 {"new_expr_ctx_config5.json", this.getTestResourceDir()},        
-                {"new_expr_ctx_config6.json", this.getTestResourceDir()},     // blocked by 26309       
+                {"new_expr_ctx_config6.json", this.getTestResourceDir()},     
 //                {"new_expr_ctx_config7.json", this.getTestResourceDir()},   // blocked due to the typeref issue     
 //                {"new_expr_ctx_config8.json", this.getTestResourceDir()},   // blocked due to the typeref issue     
 //                {"new_expr_ctx_config9.json", this.getTestResourceDir()},   // blocked due to the typeref issue     

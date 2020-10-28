@@ -593,7 +593,6 @@ public class SymbolEnter extends BLangNodeVisitor {
     @Override
     public void visit(BLangClassDefinition classDefinition) {
         EnumSet<Flag> flags = EnumSet.copyOf(classDefinition.flagSet);
-        boolean isReadOnly = flags.contains(Flag.READONLY);
         boolean isPublicType = flags.contains(Flag.PUBLIC);
         Name className = names.fromIdNode(classDefinition.name);
 
@@ -608,7 +607,17 @@ public class SymbolEnter extends BLangNodeVisitor {
         if (flags.contains(Flag.SERVICE)) {
             objectType = new BServiceType(tSymbol);
         } else {
-            objectType = isReadOnly ? new BObjectType(tSymbol, Flags.READONLY) : new BObjectType(tSymbol);
+            int typeFlags = 0;
+
+            if (flags.contains(Flag.READONLY)) {
+                typeFlags |= Flags.READONLY;
+            }
+
+            if (flags.contains(Flag.ISOLATED)) {
+                typeFlags |= Flags.ISOLATED;
+            }
+
+            objectType = new BObjectType(tSymbol, typeFlags);
         }
 
         if (flags.contains(Flag.DISTINCT)) {
@@ -2008,16 +2017,13 @@ public class SymbolEnter extends BLangNodeVisitor {
             if (node.getKind() == NodeKind.CLASS_DEFN) {
                 defineMembersOfClassDef(pkgEnv, (BLangClassDefinition) node);
             } else if (node.getKind() == NodeKind.TYPE_DEFINITION) {
-                defineMemberOfObjectOrRecordDef(pkgEnv, (BLangTypeDefinition) node);
+                defineMemberOfObjectTypeDef(pkgEnv, (BLangTypeDefinition) node);
             }
         }
     }
 
-    private void defineMemberOfObjectOrRecordDef(SymbolEnv pkgEnv, BLangTypeDefinition node) {
+    private void defineMemberOfObjectTypeDef(SymbolEnv pkgEnv, BLangTypeDefinition node) {
         BLangTypeDefinition typeDef = node;
-        if (typeDef.typeNode.getKind() == NodeKind.USER_DEFINED_TYPE) {
-            return;
-        }
         if (typeDef.typeNode.getKind() == NodeKind.OBJECT_TYPE) {
             BObjectType objectType = (BObjectType) typeDef.symbol.type;
 

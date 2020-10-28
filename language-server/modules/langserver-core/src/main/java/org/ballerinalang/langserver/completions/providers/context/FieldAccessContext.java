@@ -17,7 +17,6 @@ package org.ballerinalang.langserver.completions.providers.context;
 
 import io.ballerina.compiler.api.symbols.FunctionSymbol;
 import io.ballerina.compiler.api.symbols.MethodSymbol;
-import io.ballerina.compiler.api.symbols.Qualifier;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.SymbolKind;
 import io.ballerina.compiler.api.types.BallerinaTypeDescriptor;
@@ -34,22 +33,17 @@ import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.SimpleNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import org.ballerinalang.langserver.common.CommonKeys;
+import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
 import org.ballerinalang.langserver.commons.LSContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
-import org.ballerinalang.langserver.compiler.DocumentServiceKeys;
 import org.ballerinalang.langserver.completions.FieldCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
-import org.ballerinalang.langserver.completions.util.ItemResolverConstants;
-import org.ballerinalang.langserver.completions.util.Priority;
 import org.eclipse.lsp4j.CompletionItem;
-import org.eclipse.lsp4j.CompletionItemKind;
-import org.eclipse.lsp4j.InsertTextFormat;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Generic Completion provider for field access providers.
@@ -138,11 +132,11 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
         }
 
         List<FieldDescriptor> fieldDescriptors = new ArrayList<>();
-
-        if (typeDescriptor.get().kind() == TypeDescKind.OBJECT) {
-            fieldDescriptors.addAll(((ObjectTypeDescriptor) typeDescriptor.get()).fieldDescriptors());
-        } else if (typeDescriptor.get().kind() == TypeDescKind.RECORD) {
-            fieldDescriptors.addAll(((RecordTypeDescriptor) typeDescriptor.get()).fieldDescriptors());
+        BallerinaTypeDescriptor rawType = CommonUtil.getRawType(typeDescriptor.get());
+        if (rawType.kind() == TypeDescKind.OBJECT) {
+            fieldDescriptors.addAll(((ObjectTypeDescriptor) rawType).fieldDescriptors());
+        } else if (rawType.kind() == TypeDescKind.RECORD) {
+            fieldDescriptors.addAll(((RecordTypeDescriptor) rawType).fieldDescriptors());
         }
 
         return fieldDescriptors.stream()
@@ -192,10 +186,10 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
         if (fieldTypeDesc.isEmpty()) {
             return Optional.empty();
         }
-
-        List<MethodSymbol> visibleMethods = fieldTypeDesc.get().builtinMethods();
-        if (fieldTypeDesc.get().kind() == TypeDescKind.OBJECT) {
-            visibleMethods.addAll(((ObjectTypeDescriptor) fieldTypeDesc.get()).methods());
+        BallerinaTypeDescriptor rawType = CommonUtil.getRawType(fieldTypeDesc.get());
+        List<MethodSymbol> visibleMethods = rawType.builtinMethods();
+        if (rawType.kind() == TypeDescKind.OBJECT) {
+            visibleMethods.addAll(((ObjectTypeDescriptor) rawType).methods());
         }
         Optional<MethodSymbol> filteredMethod = visibleMethods.stream()
                 .filter(methodSymbol -> methodSymbol.name().equals(methodName))
@@ -205,15 +199,16 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
             return Optional.empty();
         }
 
-        return Optional.of(filteredMethod.get().typeDescriptor());
+        return filteredMethod.get().typeDescriptor().returnTypeDescriptor();
     }
 
     private List<LSCompletionItem> getCompletionsForTypeDesc(LSContext context,
                                                              BallerinaTypeDescriptor typeDescriptor) {
         List<LSCompletionItem> completionItems = new ArrayList<>();
-        switch (typeDescriptor.kind()) {
+        BallerinaTypeDescriptor rawType = CommonUtil.getRawType(typeDescriptor);
+        switch (rawType.kind()) {
             case RECORD:
-                ((RecordTypeDescriptor) typeDescriptor).fieldDescriptors().forEach(fieldDescriptor -> {
+                ((RecordTypeDescriptor) rawType).fieldDescriptors().forEach(fieldDescriptor -> {
                     CompletionItem completionItem = new CompletionItem();
                     completionItem.setLabel(fieldDescriptor.name());
                     completionItem.setInsertText(fieldDescriptor.name());
@@ -222,7 +217,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
                 });
                 break;
             case OBJECT:
-                ObjectTypeDescriptor objTypeDesc = (ObjectTypeDescriptor) typeDescriptor;
+                ObjectTypeDescriptor objTypeDesc = (ObjectTypeDescriptor) rawType;
                 objTypeDesc.fieldDescriptors().forEach(fieldDescriptor -> {
                     CompletionItem completionItem = new CompletionItem();
                     completionItem.setLabel(fieldDescriptor.name());
@@ -236,65 +231,6 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
                 break;
         }
         completionItems.addAll(this.getCompletionItemList(typeDescriptor.builtinMethods(), context));
-
-        return completionItems;
-    }
-
-    @Deprecated
-    public List<LSCompletionItem> getObjectMethods(LSContext context,
-                                                   ObjectTypeDescriptor objectTypeDesc,
-                                                   String symbolName) {
-        String currentModule = context.get(DocumentServiceKeys.CURRENT_PKG_NAME_KEY);
-        String objectOwnerModule = objectTypeDesc.moduleID().moduleName();
-        boolean symbolInCurrentModule = currentModule.equals(objectOwnerModule);
-
-        // Extract the method entries
-        List<Symbol> methods = objectTypeDesc.methods().stream()
-                .filter(symbol -> {
-                    boolean isPrivate = symbol.qualifiers().contains(Qualifier.PRIVATE);
-                    boolean isPublic = symbol.qualifiers().contains(Qualifier.PUBLIC);
-
-                    return !((symbol.name().contains(".init") && !"self".equals(symbolName))
-                            || (isPrivate && !"self".equals(symbolName))
-                            || (!isPrivate && !isPublic && !symbolInCurrentModule));
-                }).collect(Collectors.toList());
-
-        return this.getCompletionItemList(methods, context);
-    }
-
-    @Deprecated
-    public List<LSCompletionItem> getObjectFields(LSContext context,
-                                                  ObjectTypeDescriptor objectTypeDesc,
-                                                  String symbolName) {
-        String currentModule = context.get(DocumentServiceKeys.CURRENT_PKG_NAME_KEY);
-        String objectOwnerModule = objectTypeDesc.moduleID().moduleName();
-        boolean symbolInCurrentModule = currentModule.equals(objectOwnerModule);
-
-        // Extract Field Entries
-        List<FieldDescriptor> fields = objectTypeDesc.fieldDescriptors().stream()
-                .filter(fieldDescriptor -> {
-                    boolean isPrivate = fieldDescriptor.qualifier().isPresent()
-                            && fieldDescriptor.qualifier().get() == Qualifier.PRIVATE;
-                    boolean isPublic = fieldDescriptor.qualifier().isPresent()
-                            && fieldDescriptor.qualifier().get() == Qualifier.PUBLIC;
-                    return !((isPrivate && !"self".equals(symbolName))
-                            || (!isPrivate && !isPublic && !symbolInCurrentModule));
-                })
-                .collect(Collectors.toList());
-
-        List<LSCompletionItem> completionItems = new ArrayList<>();
-
-        for (FieldDescriptor field : fields) {
-            CompletionItem fieldItem = new CompletionItem();
-            fieldItem.setInsertText(field.name());
-            fieldItem.setInsertTextFormat(InsertTextFormat.Snippet);
-            fieldItem.setLabel(field.name());
-            fieldItem.setDetail(ItemResolverConstants.FIELD_TYPE);
-            fieldItem.setKind(CompletionItemKind.Field);
-            fieldItem.setSortText(Priority.PRIORITY120.toString());
-
-            completionItems.add(new FieldCompletionItem(context, field, fieldItem));
-        }
 
         return completionItems;
     }

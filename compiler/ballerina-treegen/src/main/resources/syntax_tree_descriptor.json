@@ -195,7 +195,8 @@
                 },
                 {
                     "name": "serviceName",
-                    "type": "IdentifierToken"
+                    "type": "IdentifierToken",
+                    "isOptional": true
                 },
                 {
                     "name": "onKeyword",
@@ -1488,11 +1489,13 @@
                 },
                 {
                     "name": "equalsToken",
-                    "type": "Token"
+                    "type": "Token",
+                    "isOptional": true
                 },
                 {
                     "name": "initializer",
-                    "type": "ExpressionNode"
+                    "type": "ExpressionNode",
+                    "isOptional": true
                 },
                 {
                     "name": "semicolonToken",
@@ -1919,7 +1922,8 @@
                 },
                 {
                     "name": "type",
-                    "type": "Node"
+                    "type": "Node",
+                    "isOptional": true
                 }
             ]
         },
@@ -2170,7 +2174,7 @@
                 },
                 {
                     "name": "content",
-                    "type": "TemplateMemberNode",
+                    "type": "Node",
                     "occurrences": "MULTIPLE"
                 },
                 {
@@ -2180,13 +2184,8 @@
             ]
         },
         {
-            "name": "TemplateMemberNode",
-            "base": "Node",
-            "isAbstract": true
-        },
-        {
             "name": "XMLItemNode",
-            "base": "TemplateMemberNode",
+            "base": "Node",
             "isAbstract": true
         },
         {
@@ -3027,7 +3026,8 @@
                 },
                 {
                     "name": "peerWorker",
-                    "type": "NameReferenceNode"
+                    "type": "NameReferenceNode",
+                    "isOptional": true
                 }
             ]
         },
@@ -3518,7 +3518,8 @@
                 },
                 {
                     "name": "qualifier",
-                    "type": "Token"
+                    "type": "Token",
+                    "isOptional": true
                 },
                 {
                     "name": "enumKeywordToken",
@@ -4123,7 +4124,7 @@
         },
         {
             "name": "OrderByClauseNode",
-            "base": "ClauseNode",
+            "base": "IntermediateClauseNode",
             "kind": "ORDER_BY_CLAUSE",
             "attributes": [
                 {
